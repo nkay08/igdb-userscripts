@@ -1,14 +1,12 @@
 // ==UserScript==
 // @name         IGDB List Extra Info
 // @namespace    https://greasyfork.org/de/users/155913-nkay08
-// @version      0.8
-// @description  Adds additional information  (genre, rating, keywords)to igdb.com lists. They can be loaded witha button 
-// click. Needs an IGDB api key.
+// @description  Adds additional information  (genre, rating, keywords)to igdb.com lists. They can be loaded witha button // click. Needs an IGDB api key.
+//
 // @author       NKay
 // @include        http*://www.igdb.com/*
 // @grant        none
 // @require http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js
-// @require https://git.io/vMmuf
 // ==/UserScript==
 
 
@@ -16,6 +14,7 @@
 var apikey = '';
 
 var gametextarray = [];
+var gameidarray = [];
 var genresnodearray = [];
 var keywordsnodearray = [];
 var ratingnodearray = [];
@@ -26,11 +25,11 @@ function addAdditionalInfo(jnode) {
     // Your code here...
     console.log('Adding button and placeholders for extra info');
     //api urls
-    var apikey = 'a219bebccdba1921822242709439c6e4';
     var apiurl = 'https://api-2445582011268.apicast.io';
     var req = '/games/?search=';
     var reqid = '/games/1942?fields=*';
     var corsproxy = 'https://cors-anywhere.herokuapp.com/';
+    var fields = '?fields=genres,keywords,rating,rating_count,aggregated_rating,aggregated_rating_count,total_rating,total_rating_count';
 
     var sidebar = document.getElementsByClassName("nopad");
     var sidebarchild = sidebar[0].childNodes[0];
@@ -57,11 +56,12 @@ function addAdditionalInfo(jnode) {
     for (var i = 0; i < pageDivs.length; i++)
     //for (var i = 0; i < 1; i++)
     {
-        //add a textnode
-        // modify with .nodeValue=
 
+        // get sibling. sibling has game id
+        var sib = pageDivs[i].nextSibling;
+        var gameid = sib.getAttribute("data-game");
         //set some elements
-        //    var filler = document.createTextNode('  |  ');
+        // var filler = document.createTextNode('  |  ');
         var genrestext = document.createTextNode('Genres: ');
         var genresspan = document.createElement('span');
         genresspan.style.fontSize = 'medium';
@@ -96,10 +96,8 @@ function addAdditionalInfo(jnode) {
 
 
         //get the game name
-        var gametext = 'test';
         var span1 = pageDivs[i].getElementsByTagName('span');
-        gametext = span1[0].innerHTML;
-        gametextarray.push(corsproxy + apiurl + req + gametext);
+        gameidarray.push(corsproxy + apiurl + '/games/' + gameid + fields);
 
         //    var ref = pageDivs[i].getElementsByClassName("link-dark");
         //  text = document.createTextNode(ref[0].href);
@@ -120,21 +118,11 @@ function addAdditionalInfo(jnode) {
         ratingnodearray.forEach(element => element.nodeValue = 'loading..');
 
         //execute multiple fetch promises
-        //first fetch the game-id for a given name
+        // first fetch rating for each id
         Promise.all(
-            gametextarray.map(
+            gameidarray.map(
                 (url, index) => fetch(url, {
                     headers: myheaders
-                })
-                .then(res => res.json())
-                .then(data => {
-                    var gameidnum = data[0].id;
-                    var gameid = gameidnum.toString();
-                    //generate new url with id to query for the data
-                    var newurl = (corsproxy + apiurl + '/games/' + gameid + '?fields=*');
-                    return fetch(newurl, {
-                        headers: myheaders
-                    });
                 })
                 .then(res2 => res2.json())
                 .then(data2 => {
@@ -183,7 +171,7 @@ function addAdditionalInfo(jnode) {
                                         var newgenre = document.createElement('a');
                                         newgenre.setAttribute("href", tgenre.url);
                                         var comma = ', ';
-                                        if (genreindex == datagenre.length) {
+                                        if (genreindex == datagenre.length -1) {
                                             comma = '';
                                         }
                                         newgenre.appendChild(document.createTextNode(tgenre.name + comma));
@@ -207,7 +195,7 @@ function addAdditionalInfo(jnode) {
                                         var newkey = document.createElement('a');
                                         newkey.setAttribute('href', tkey.url);
                                         var comma = ', ';
-                                        if (keyindex == datakey.length) {
+                                        if (keyindex == datakey.length -1) {
                                             comma = '';
                                         }
                                         newkey.appendChild(document.createTextNode(tkey.name + comma));
@@ -229,3 +217,96 @@ function addAdditionalInfo(jnode) {
 
 //only execute function if this element is loaded via ajax
 waitForKeyElements("#content-page > div > div.content-left.col-md-pull-10.col-md-2 > div > a:nth-child(3)", addAdditionalInfo, true);
+
+/*--- waitForKeyElements():  A utility function, for Greasemonkey scripts,
+    that detects and handles AJAXed content.
+
+    Usage example:
+
+        waitForKeyElements (
+            "div.comments"
+            , commentCallbackFunction
+        );
+
+        //--- Page-specific function to do what we want when the node is found.
+        function commentCallbackFunction (jNode) {
+            jNode.text ("This comment changed by waitForKeyElements().");
+        }
+
+    IMPORTANT: This function requires your script to have loaded jQuery.
+*/
+function waitForKeyElements (
+    selectorTxt,    /* Required: The jQuery selector string that
+                        specifies the desired element(s).
+                    */
+    actionFunction, /* Required: The code to run when elements are
+                        found. It is passed a jNode to the matched
+                        element.
+                    */
+    bWaitOnce,      /* Optional: If false, will continue to scan for
+                        new elements even after the first match is
+                        found.
+                    */
+    iframeSelector  /* Optional: If set, identifies the iframe to
+                        search.
+                    */
+) {
+    var targetNodes, btargetsFound;
+
+    if (typeof iframeSelector == "undefined")
+        targetNodes     = $(selectorTxt);
+    else
+        targetNodes     = $(iframeSelector).contents ()
+                                           .find (selectorTxt);
+
+    if (targetNodes  &&  targetNodes.length > 0) {
+        btargetsFound   = true;
+        /*--- Found target node(s).  Go through each and act if they
+            are new.
+        */
+        targetNodes.each ( function () {
+            var jThis        = $(this);
+            var alreadyFound = jThis.data ('alreadyFound')  ||  false;
+
+            if (!alreadyFound) {
+                //--- Call the payload function.
+                var cancelFound     = actionFunction (jThis);
+                if (cancelFound)
+                    btargetsFound   = false;
+                else
+                    jThis.data ('alreadyFound', true);
+            }
+        } );
+    }
+    else {
+        btargetsFound   = false;
+    }
+
+    //--- Get the timer-control variable for this selector.
+    var controlObj      = waitForKeyElements.controlObj  ||  {};
+    var controlKey      = selectorTxt.replace (/[^\w]/g, "_");
+    var timeControl     = controlObj [controlKey];
+
+    //--- Now set or clear the timer as appropriate.
+    if (btargetsFound  &&  bWaitOnce  &&  timeControl) {
+        //--- The only condition where we need to clear the timer.
+        clearInterval (timeControl);
+        delete controlObj [controlKey];
+    }
+    else {
+        //--- Set a timer, if needed.
+        if ( ! timeControl) {
+            timeControl = setInterval ( function () {
+                    waitForKeyElements (    selectorTxt,
+                                            actionFunction,
+                                            bWaitOnce,
+                                            iframeSelector
+                                        );
+                },
+                300
+            );
+            controlObj [controlKey] = timeControl;
+        }
+    }
+    waitForKeyElements.controlObj   = controlObj;
+}
